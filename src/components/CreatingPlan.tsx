@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Clock, Award, Star, Shield, Trophy } from 'lucide-react';
+import { 
+  Flame, Clock, Award, Star, Shield, Trophy, 
+  CheckCircle, AlertTriangle, FileText, Zap, 
+  Heart, Users, Brain, Sparkles
+} from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Header from './Header';
 import AnimatedPage from './AnimatedPage';
@@ -10,11 +14,59 @@ import { useQuiz } from '../context/QuizContext';
 const CreatingPlan: React.FC = () => {
   const navigate = useNavigate();
   const [progressPercentage, setProgressPercentage] = useState(0);
-  const { goals, bodyType, dreamBody } = useQuiz();
+  const { 
+    goals, 
+    bodyType, 
+    dreamBody, 
+    bodyMassIndex,
+    chairYogaExperience,
+    ageRange
+  } = useQuiz();
+  
   const [currentMilestone, setCurrentMilestone] = useState(0);
   const [showAchievement, setShowAchievement] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
+  const [completedActivities, setCompletedActivities] = useState<string[]>([]);
+  const [unlockPulse, setUnlockPulse] = useState<number | null>(null);
+  const [fastForward, setFastForward] = useState(false);
+  const [generatingSpecial, setGeneratingSpecial] = useState<string | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
+  
+  // Determine user risk profile (for personalized messaging)
+  const getUserRiskProfile = () => {
+    if (bodyMassIndex > 30) return 'high';
+    if (bodyMassIndex > 25) return 'moderate';
+    return 'low';
+  };
+  
+  // Get a personalized benefit based on quiz answers
+  const getPersonalizedBenefit = () => {
+    const selectedGoalIds = goals.filter(g => g.selected).map(g => g.id);
+    
+    if (selectedGoalIds.includes('lose-weight')) {
+      return "queima de gordura localizada";
+    }
+    if (selectedGoalIds.includes('improve-mobility')) {
+      return "flexibilidade e mobilidade";
+    }
+    if (selectedGoalIds.includes('manage-mood')) {
+      return "redução do estresse e ansiedade";
+    }
+    return "condicionamento físico completo";
+  };
+  
+  // Determine if user gets a special bonus based on profile
+  const getSpecialUnlock = () => {
+    if (chairYogaExperience === 'never' && bodyMassIndex > 25) {
+      return "Guia Iniciante: Primeiros Passos";
+    }
+    if (ageRange === '55-64' || ageRange === '65+') {
+      return "Módulo Especial: Yoga para Articulações";
+    }
+    if (bodyType === 'plus') {
+      return "Adaptações para Todos os Tipos de Corpo";
+    }
+    return "Guia de Nutrição Express";
+  };
   
   // Inicializa o contexto de áudio na primeira interação do usuário
   useEffect(() => {
@@ -105,70 +157,156 @@ const CreatingPlan: React.FC = () => {
     }
   };
   
-  // Função para tocar som de pop suave quando aparece um card
-  const playPopSound = (delay = 0) => {
+  // Função para tocar som de destaque para unlock
+  const playUnlockSound = () => {
     if (!audioContext.current) return;
     
-    setTimeout(() => {
-      try {
-        const oscillator = audioContext.current!.createOscillator();
-        const gainNode = audioContext.current!.createGain();
-        
-        oscillator.frequency.value = 800 + Math.random() * 400;
-        oscillator.type = 'sine';
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.current!.destination);
-        
-        const now = audioContext.current!.currentTime;
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.03, now + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        
-        oscillator.start(now);
-        oscillator.stop(now + 0.15);
-      } catch (error) {
-        console.error("Erro ao tocar som pop:", error);
-      }
-    }, delay);
-  };
-  
-  // Configuração de milestones para feedback visual
-  const milestones = [
-    { threshold: 25, title: "Analisando seu perfil...", icon: <Flame className="text-orange-500" /> },
-    { threshold: 50, title: "Criando seu plano personalizado...", icon: <Clock className="text-purple-500" /> },
-    { threshold: 75, title: "Otimizando exercícios para seu tipo corporal...", icon: <Shield className="text-blue-500" /> },
-    { threshold: 95, title: "Finalizando seu plano...", icon: <Trophy className="text-yellow-500" /> },
-    { threshold: 100, title: "Plano concluído!", icon: <Award className="text-green-500" /> },
-  ];
-  
-  // Dados dos exercícios adaptados conforme respostas
-  const exercises = [
-    {
-      title: "Fase 1",
-      description: "Exercícios de cadeira diários para fortalecer o core e melhorar a postura",
-      difficulty: 5,
-      icon: <Flame className="text-orange-500" />,
-      day: "Dias 1-7"
-    },
-    {
-      title: "Fase 2",
-      description: "Progressão para movimentos mais desafiadores que auxiliam na queima calórica e força",
-      difficulty: bodyType === 'plus' ? 3 : 4,
-      icon: <Clock className="text-purple-500" />,
-      day: "Dias 8-14"
-    },
-    {
-      title: "Fase 3",
-      description: dreamBody === 'fit' ? "Exercícios avançados para tonificação muscular e definição" : "Movimentos equilibrados para bem-estar geral e mobilidade",
-      difficulty: dreamBody === 'fit' ? 5 : 3,
-      icon: <Trophy className="text-yellow-500" />,
-      day: "Dias 15-21"
+    try {
+      const oscillator1 = audioContext.current.createOscillator();
+      const oscillator2 = audioContext.current.createOscillator();
+      const gainNode = audioContext.current.createGain();
+      
+      oscillator1.frequency.value = 600;
+      oscillator2.frequency.value = 900;
+      
+      oscillator1.type = 'triangle';
+      oscillator2.type = 'sine';
+      
+      oscillator1.connect(gainNode);
+      oscillator2.connect(gainNode);
+      gainNode.connect(audioContext.current.destination);
+      
+      const now = audioContext.current.currentTime;
+      gainNode.gain.setValueAtTime(0, now);
+      gainNode.gain.linearRampToValueAtTime(0.2, now + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+      
+      oscillator1.start(now);
+      oscillator2.start(now + 0.1);
+      oscillator1.stop(now + 0.8);
+      oscillator2.stop(now + 0.8);
+    } catch (error) {
+      console.error("Erro ao tocar som de unlock:", error);
     }
+  };
+
+  // Configuração de milestones para feedback visual - expandido com muito mais detalhes
+  const milestones = [
+    { 
+      threshold: 10, 
+      title: "Analisando seu perfil de saúde...", 
+      icon: <Heart className="text-red-500" />,
+      activities: [
+        "Processando IMC e composição corporal",
+        "Avaliando histórico de atividade física",
+        "Calculando perfil metabólico personalizado"
+      ]
+    },
+    { 
+      threshold: 25, 
+      title: "Criando rotina personalizada...", 
+      icon: <Clock className="text-blue-500" />,
+      activities: [
+        "Otimizando frequência e duração dos exercícios",
+        "Equilibrando intensidade com seu nível de experiência",
+        "Ajustando sequências para suas necessidades específicas"
+      ]
+    },
+    { 
+      threshold: 40, 
+      title: "Adaptando exercícios para seu corpo...", 
+      icon: <Users className="text-purple-600" />,
+      activities: [
+        `Personalizando movimentos para tipo corporal ${bodyType === 'plus' ? 'plus size' : bodyType === 'curvy' ? 'curvilíneo' : 'regular'}`,
+        "Maximizando conforto durante a prática",
+        "Priorizando segurança para suas articulações"
+      ]
+    },
+    { 
+      threshold: 60, 
+      title: "Otimizando para seus objetivos...", 
+      icon: <Target className="text-green-600" />,
+      activities: [
+        `Intensificando foco em ${getPersonalizedBenefit()}`,
+        "Equilibrando exercícios para resultados completos",
+        "Criando progressão adaptativa para evolução constante"
+      ]
+    },
+    { 
+      threshold: 80, 
+      title: "Adicionando elementos avançados...", 
+      icon: <Zap className="text-yellow-500" />,
+      activities: [
+        "Incorporando técnicas de respiração para maximizar resultados",
+        "Incluindo micro-movimentos para ativação muscular profunda",
+        "Adicionando variações para prevenir platôs de resultados"
+      ]
+    },
+    { 
+      threshold: 95, 
+      title: "Finalizando seu plano exclusivo...", 
+      icon: <Sparkles className="text-amber-500" />,
+      activities: [
+        "Compilando todos os elementos em sequência ideal",
+        "Aplicando toques finais de personalização",
+        "Verificando eficácia do método para seu perfil específico"
+      ]
+    },
+    { 
+      threshold: 100, 
+      title: "Plano pronto para transformar sua vida!", 
+      icon: <Award className="text-green-500" />,
+      activities: [
+        "Conferindo todos os detalhes uma última vez",
+        "Confirmando compatibilidade com seu perfil",
+        "Preparando materiais para entrega imediata"
+      ]
+    },
   ];
 
+  // Dados de elementos do plano que serão "desbloqueados" durante a criação
+  const planElements = [
+    { 
+      label: "Rotina Diária",
+      description: "15 minutos de transformação sem sair da cadeira",
+      icon: <FileText className="w-4 h-4" />,
+      unlockAt: 30
+    },
+    { 
+      label: "Adaptações Posturais",
+      description: `Personalização para ${bodyType === 'plus' ? 'todos os tipos de corpo' : 'sua estrutura corporal'}`,
+      icon: <Users className="w-4 h-4" />,
+      unlockAt: 45
+    },
+    { 
+      label: "Plano de Progressão",
+      description: "Evolução inteligente sem sobrecargas ou lesões",
+      icon: <TrendingDown className="w-4 h-4" />,
+      unlockAt: 55
+    },
+    { 
+      label: "Sequências Avançadas",
+      description: "Para resultados após dominar os fundamentos",
+      icon: <Zap className="w-4 h-4" />,
+      unlockAt: 65
+    },
+    { 
+      label: getSpecialUnlock(),
+      description: "Conteúdo exclusivo liberado pelo seu perfil",
+      icon: <Award className="w-4 h-4" />,
+      unlockAt: 75,
+      special: true
+    },
+    { 
+      label: "Guia de Nutrição Simplificado",
+      description: "Complementos alimentares para maximizar resultados",
+      icon: <Brain className="w-4 h-4" />,
+      unlockAt: 85
+    }
+  ];
+  
   // Animação de partículas para celebração
   const triggerConfetti = () => {
-    setShowConfetti(true);
     confetti({
       particleCount: 100,
       spread: 70,
@@ -182,8 +320,8 @@ const CreatingPlan: React.FC = () => {
   
   // Animação de progresso e redirecionamento sincronizado
   useEffect(() => {
-    // Tempo total da animação: 5 segundos 
-    const totalTime = 5000;
+    // Determinar o tempo total baseado na velocidade escolhida
+    const totalTime = fastForward ? 2500 : 6000;
     const interval = 50; // Atualiza a cada 50ms para animação mais suave
     const steps = totalTime / interval;
     const increment = 100 / steps;
@@ -194,6 +332,22 @@ const CreatingPlan: React.FC = () => {
       step++;
       const newValue = Math.min(Math.round(step * increment), 100);
       setProgressPercentage(newValue);
+      
+      // Verificar e adicionar elementos desbloqueados
+      planElements.forEach(element => {
+        if (newValue >= element.unlockAt && !completedActivities.includes(element.label)) {
+          setCompletedActivities(prev => [...prev, element.label]);
+          setUnlockPulse(element.unlockAt);
+          
+          if (element.special) {
+            setGeneratingSpecial(element.label);
+            setTimeout(() => setGeneratingSpecial(null), 2000);
+          }
+          
+          // Som de desbloqueio
+          playUnlockSound();
+        }
+      });
       
       // Atualiza o milestone atual baseado no progresso
       for (let i = milestones.length - 1; i >= 0; i--) {
@@ -229,20 +383,7 @@ const CreatingPlan: React.FC = () => {
     }, interval);
     
     return () => clearInterval(animationInterval);
-  }, [navigate, currentMilestone]);
-
-  // Adicionamos um efeito para tocar sons quando os exercícios aparecerem
-  useEffect(() => {
-    if (progressPercentage > 25) {
-      playPopSound(0);
-    }
-    if (progressPercentage > 50) {
-      playPopSound(200);
-    }
-    if (progressPercentage > 75) {
-      playPopSound(400);
-    }
-  }, [progressPercentage]);
+  }, [navigate, currentMilestone, completedActivities, fastForward]);
 
   return (
     <AnimatedPage>
@@ -255,7 +396,7 @@ const CreatingPlan: React.FC = () => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="flex justify-center mb-5"
+              className="flex justify-center mb-4"
             >
               <div className="relative w-28 h-28">
                 {/* Círculo de fundo */}
@@ -318,7 +459,7 @@ const CreatingPlan: React.FC = () => {
                       exit={{ scale: 0, rotate: 45 }}
                       className="absolute -top-2 -right-2 bg-green-500 text-white p-1.5 rounded-full shadow-lg"
                     >
-                      <Trophy size={18} />
+                      <CheckCircle size={18} />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -332,7 +473,7 @@ const CreatingPlan: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
               transition={{ duration: 0.3 }}
-              className="text-center mb-6"
+              className="text-center mb-5"
             >
               <div className="inline-flex items-center gap-2 mb-2">
                 <motion.div 
@@ -348,66 +489,133 @@ const CreatingPlan: React.FC = () => {
               
               <p className="text-sm text-gray-600">
                 {progressPercentage < 100 
-                  ? "Seu plano personalizado está sendo criado com base nas suas respostas" 
+                  ? "Seu plano único está sendo criado com base nas suas respostas" 
                   : "Seu plano personalizado está pronto!"}
               </p>
             </motion.div>
 
-            {/* Elemento de autoridade */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-center mb-4"
-            >
-              <div className="flex justify-center items-center gap-1 text-xs text-purple-700 font-medium">
-                <Shield className="w-3 h-3" />
-                <span>Desenvolvido por especialistas em fisioterapia</span>
-              </div>
-            </motion.div>
+            {/* Notificação de risco para IMC alto - Aumente a urgência */}
+            {bodyMassIndex > 25 && progressPercentage > 15 && progressPercentage < 75 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-800 mb-1">
+                      Nível de risco: {getUserRiskProfile() === 'high' ? 'Elevado' : 'Moderado'}
+                    </p>
+                    <p className="text-amber-700">
+                      Seu IMC de {bodyMassIndex.toFixed(1)} exige adaptações específicas. Estamos 
+                      ajustando seu plano para maximizar resultados com segurança.
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
             
-            {/* Cards de exercícios */}
-            <div className="space-y-3 mb-5">
-              {exercises.map((exercise, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ 
-                    opacity: progressPercentage > (index+1) * 25 ? 1 : 0.5, 
-                    x: progressPercentage > (index+1) * 25 ? 0 : -20 
-                  }}
-                  transition={{ delay: 0.5 + index * 0.2 }}
-                  className={`bg-purple-100 p-4 rounded-xl transition-all ${
-                    progressPercentage > (index+1) * 25 ? "shadow-md" : ""
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">{exercise.icon}</div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1">
-                        <h3 className="font-medium text-[#2D1441]">
-                          {exercise.title} 
-                          <span className="ml-2 text-xs text-purple-600 font-normal">{exercise.day}</span>
-                        </h3>
-                        <div className="flex">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <motion.div 
-                              key={i} 
-                              className={`w-2 h-2 rounded-full mx-0.5 ${i < exercise.difficulty ? 'bg-orange-500' : 'bg-gray-300'}`}
-                              initial={{ scale: 0 }}
-                              animate={{ 
-                                scale: progressPercentage > (index+1) * 25 && i < exercise.difficulty ? 1 : 0 
-                              }}
-                              transition={{ delay: 0.5 + index * 0.2 + i * 0.1 }}
-                            />
-                          ))}
+            {/* Atividades atuais - animado e detalhado */}
+            <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-sm mb-5">
+              <h3 className="font-medium text-[#2D1441] mb-3 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-[#7432B4]" />
+                <span>Atividades em processamento</span>
+              </h3>
+              
+              <div className="space-y-3">
+                {milestones[currentMilestone].activities.map((activity, idx) => (
+                  <motion.div
+                    key={`${currentMilestone}-${idx}`}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.2, duration: 0.3 }}
+                    className="flex items-start gap-2"
+                  >
+                    <motion.div
+                      animate={{ 
+                        scale: [1, 1.2, 1],
+                        opacity: [0.7, 1, 0.7] 
+                      }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="w-5 h-5 mt-0.5 flex-shrink-0 bg-purple-100 rounded-full flex items-center justify-center"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-[#7432B4]"></div>
+                    </motion.div>
+                    <div className="text-sm text-gray-700">{activity}</div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Elementos do plano desbloqueados - Gamificação forte */}
+            <div className="mb-5 bg-gradient-to-r from-[#7432B4]/5 to-[#7432B4]/10 rounded-lg border border-purple-100 p-4">
+              <h3 className="font-medium text-[#2D1441] mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#7432B4]" />
+                <span>Elementos do seu plano</span>
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {planElements.map((element, idx) => {
+                  const isUnlocked = completedActivities.includes(element.label);
+                  const isPulsing = unlockPulse === element.unlockAt;
+                  const isGeneratingSpecial = generatingSpecial === element.label;
+                  
+                  return (
+                    <motion.div
+                      key={element.label}
+                      className={`rounded-lg p-3 ${
+                        isGeneratingSpecial ? 'bg-yellow-100 border border-yellow-200' :
+                        isUnlocked ? 'bg-white border border-green-200' : 
+                        'bg-gray-50 border border-gray-200'
+                      }`}
+                      animate={isPulsing ? { 
+                        scale: [1, 1.05, 1],
+                        boxShadow: [
+                          '0 0 0 rgba(116, 50, 180, 0)', 
+                          '0 0 15px rgba(116, 50, 180, 0.3)', 
+                          '0 0 0 rgba(116, 50, 180, 0)'
+                        ]
+                      } : {}}
+                      transition={{ duration: 0.8 }}
+                    >
+                      <div className="flex items-start gap-2 mb-1">
+                        <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center ${
+                          isGeneratingSpecial ? 'bg-yellow-400 text-white' :
+                          isUnlocked ? 'bg-green-100 text-green-600' : 
+                          'bg-gray-100 text-gray-400'
+                        }`}>
+                          {isUnlocked ? <CheckCircle className="w-3 h-3" /> : element.icon}
+                        </div>
+                        <div className={`text-sm font-medium ${
+                          isGeneratingSpecial ? 'text-yellow-800' :
+                          isUnlocked ? 'text-gray-800' : 'text-gray-400'
+                        }`}>
+                          {element.label}
                         </div>
                       </div>
-                      <p className="text-sm text-gray-600">{exercise.description}</p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                      <p className={`text-xs pl-8 ${
+                        isGeneratingSpecial ? 'text-yellow-700' :
+                        isUnlocked ? 'text-gray-600' : 'text-gray-400'
+                      }`}>
+                        {element.description}
+                      </p>
+                      
+                      {/* Tag especial */}
+                      {element.special && (
+                        <div className="mt-1 pl-8">
+                          <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded ${
+                            isUnlocked ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'
+                          }`}>
+                            CONTEÚDO EXCLUSIVO
+                          </span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
             </div>
             
             {/* Achievement Card */}
@@ -421,7 +629,7 @@ const CreatingPlan: React.FC = () => {
                   className="mb-5 bg-gradient-to-r from-purple-600 to-purple-800 rounded-xl p-5 text-white shadow-lg overflow-hidden relative"
                 >
                   {/* Overlay de partículas */}
-                  {showConfetti && Array.from({ length: 20 }).map((_, i) => (
+                  {Array.from({ length: 20 }).map((_, i) => (
                     <motion.div
                       key={i}
                       className="absolute w-1.5 h-1.5 rounded-full bg-yellow-300 opacity-60"
@@ -465,25 +673,14 @@ const CreatingPlan: React.FC = () => {
                     
                     <div className="flex-1 text-center sm:text-left">
                       <h3 className="font-bold text-xl mb-1">Conquista Desbloqueada!</h3>
-                      <p className="text-sm text-purple-100">Seu plano personalizado de 21 dias está pronto para transformar sua vida.</p>
-                      
-                      <div className="flex flex-wrap justify-center sm:justify-start mt-3 gap-2">
-                        <motion.button 
-                          className="text-xs bg-white/10 hover:bg-white/20 py-1 px-3 rounded-full text-white flex items-center gap-1"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => playPopSound(0)}
-                        >
-                          <span>Compartilhar</span>
-                        </motion.button>
-                        <motion.button 
-                          className="text-xs bg-white/10 hover:bg-white/20 py-1 px-3 rounded-full text-white flex items-center gap-1"
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => playPopSound(0)}
-                        >
-                          <span>Salvar certificado</span>
-                        </motion.button>
+                      <p className="text-sm text-purple-100">Seu plano personalizado de 21 dias está pronto para transformar sua vida!</p>
+                      <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <div className="bg-purple-700/30 px-2 py-1 rounded-full text-xs">
+                          <span className="text-yellow-300 font-bold">{completedActivities.length}/6</span> elementos desbloqueados
+                        </div>
+                        <div className="bg-purple-700/30 px-2 py-1 rounded-full text-xs">
+                          <span className="text-yellow-300 font-bold">100%</span> personalizado
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -491,36 +688,18 @@ const CreatingPlan: React.FC = () => {
               )}
             </AnimatePresence>
             
-            {/* Prova social */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: progressPercentage > 70 ? 1 : 0 }}
-              transition={{ delay: 0.9 }}
-              className="mb-5 bg-white rounded-xl p-3 shadow-sm"
-              onAnimationComplete={() => {
-                if (progressPercentage > 70) {
-                  playPopSound(0);
-                }
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <div className="flex text-yellow-400 mt-0.5">
-                  {[1, 2, 3, 4, 5].map(star => (
-                    <Star key={star} className="w-3 h-3 fill-current" />
-                  ))}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-700 font-medium">
-                    "Perdi 8kg em 3 meses com os exercícios. Recomendo para todos!" — Marina S.
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Award className="w-3 h-3 text-purple-600" />
-                    <span className="text-[10px] text-purple-700 font-medium">98% de aprovação entre usuários</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-            
+            {/* Elemento de velocidade - Redução do atrito */}
+            {!showAchievement && !fastForward && progressPercentage < 40 && (
+              <motion.button
+                onClick={() => setFastForward(true)}
+                className="w-full py-2 text-[#7432B4] text-sm font-medium border border-[#7432B4]/30 rounded-lg hover:bg-[#7432B4]/5 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Processar mais rápido
+              </motion.button>
+            )}
+
             {/* Nota de rodapé */}
             <motion.p
               initial={{ opacity: 0 }}
@@ -528,7 +707,7 @@ const CreatingPlan: React.FC = () => {
               transition={{ delay: 1 }}
               className="text-xs text-center text-gray-500 px-6"
             >
-              As instruções detalhadas em nosso plano são apresentadas de maneira clara e direta para proteger a privacidade, os nossos termos e as fichas podem ser alteradas, mas a qualidade permanece a mesma.
+              Seu plano é desenvolvido com base nas mais recentes pesquisas em fisiologia do exercício e adaptado especificamente ao seu perfil.
             </motion.p>
           </div>
         </main>
