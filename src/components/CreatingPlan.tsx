@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Flame, Clock, Award, Star, Shield, Trophy, 
+  Flame, Clock, Award, Shield, Trophy, 
   CheckCircle, AlertTriangle, FileText, Zap, 
-  Heart, Users, Brain, Sparkles
+  Heart, Users, Brain, Sparkles, Activity, Target, TrendingDown
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Header from './Header';
@@ -29,10 +29,10 @@ const CreatingPlan: React.FC = () => {
   const [unlockPulse, setUnlockPulse] = useState<number | null>(null);
   const [fastForward, setFastForward] = useState(false);
   const [generatingSpecial, setGeneratingSpecial] = useState<string | null>(null);
-  const audioContext = useRef<AudioContext | null>(null);
   
   // Determine user risk profile (for personalized messaging)
   const getUserRiskProfile = () => {
+    if (!bodyMassIndex) return 'low';
     if (bodyMassIndex > 30) return 'high';
     if (bodyMassIndex > 25) return 'moderate';
     return 'low';
@@ -40,6 +40,8 @@ const CreatingPlan: React.FC = () => {
   
   // Get a personalized benefit based on quiz answers
   const getPersonalizedBenefit = () => {
+    if (!goals || !goals.length) return "condicionamento físico completo";
+    
     const selectedGoalIds = goals.filter(g => g.selected).map(g => g.id);
     
     if (selectedGoalIds.includes('lose-weight')) {
@@ -56,7 +58,7 @@ const CreatingPlan: React.FC = () => {
   
   // Determine if user gets a special bonus based on profile
   const getSpecialUnlock = () => {
-    if (chairYogaExperience === 'never' && bodyMassIndex > 25) {
+    if (chairYogaExperience === 'never' && bodyMassIndex && bodyMassIndex > 25) {
       return "Guia Iniciante: Primeiros Passos";
     }
     if (ageRange === '55-64' || ageRange === '65+') {
@@ -66,128 +68,6 @@ const CreatingPlan: React.FC = () => {
       return "Adaptações para Todos os Tipos de Corpo";
     }
     return "Guia de Nutrição Express";
-  };
-  
-  // Inicializa o contexto de áudio na primeira interação do usuário
-  useEffect(() => {
-    // Só criamos o contexto de áudio uma vez
-    if (!audioContext.current) {
-      // Criamos o contexto em uma função que será chamada no primeiro clique ou interação do usuário
-      const setupAudio = () => {
-        // Cria o contexto de áudio
-        audioContext.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        // Remove o event listener depois que o áudio estiver configurado
-        document.removeEventListener('click', setupAudio);
-      };
-      
-      // Adiciona o event listener para iniciar o áudio quando o usuário interagir pela primeira vez
-      document.addEventListener('click', setupAudio);
-      
-      // Limpeza quando o componente desmontar
-      return () => {
-        document.removeEventListener('click', setupAudio);
-        if (audioContext.current && audioContext.current.state !== 'closed') {
-          audioContext.current.close();
-        }
-      };
-    }
-  }, []);
-  
-  // Função para tocar um som de milestone atingido
-  const playMilestoneSound = (milestoneIndex: number) => {
-    if (!audioContext.current) return;
-    
-    try {
-      const oscillator = audioContext.current.createOscillator();
-      const gainNode = audioContext.current.createGain();
-      
-      // Diferentes frequências baseadas no milestone (notas musicais ascendentes)
-      const frequencies = [330, 392, 440, 494, 523]; // Notas musicais Mi, Sol, Lá, Si, Dó
-      oscillator.frequency.value = frequencies[milestoneIndex % frequencies.length];
-      
-      // Configurar o tipo de onda e conectar ao nó de ganho (volume)
-      oscillator.type = 'sine';
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.current.destination);
-      
-      // Configurar envelope de amplitude (ADSR simplificado)
-      const now = audioContext.current.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.2, now + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-      
-      // Iniciar e parar o oscilador
-      oscillator.start(now);
-      oscillator.stop(now + 0.5);
-    } catch (error) {
-      console.error("Erro ao tocar som:", error);
-    }
-  };
-  
-  // Função para tocar som de conclusão/sucesso
-  const playSuccessSound = () => {
-    if (!audioContext.current) return;
-    
-    try {
-      // Criamos vários osciladores para um acorde
-      const chord = [523.25, 659.25, 783.99]; // Dó, Mi, Sol (Acorde de Dó maior)
-      
-      chord.forEach((frequency, index) => {
-        const oscillator = audioContext.current!.createOscillator();
-        const gainNode = audioContext.current!.createGain();
-        
-        oscillator.frequency.value = frequency;
-        oscillator.type = index === 0 ? 'sine' : 'triangle';
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.current!.destination);
-        
-        // Volume mais alto e duração mais longa para o som de sucesso
-        const now = audioContext.current!.currentTime;
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.1, now + 0.02);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-        
-        // Adiciona um pequeno atraso para o efeito de arpejo
-        const startTime = now + index * 0.08;
-        oscillator.start(startTime);
-        oscillator.stop(startTime + 1.5);
-      });
-    } catch (error) {
-      console.error("Erro ao tocar som de sucesso:", error);
-    }
-  };
-  
-  // Função para tocar som de destaque para unlock
-  const playUnlockSound = () => {
-    if (!audioContext.current) return;
-    
-    try {
-      const oscillator1 = audioContext.current.createOscillator();
-      const oscillator2 = audioContext.current.createOscillator();
-      const gainNode = audioContext.current.createGain();
-      
-      oscillator1.frequency.value = 600;
-      oscillator2.frequency.value = 900;
-      
-      oscillator1.type = 'triangle';
-      oscillator2.type = 'sine';
-      
-      oscillator1.connect(gainNode);
-      oscillator2.connect(gainNode);
-      gainNode.connect(audioContext.current.destination);
-      
-      const now = audioContext.current.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(0.2, now + 0.05);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-      
-      oscillator1.start(now);
-      oscillator2.start(now + 0.1);
-      oscillator1.stop(now + 0.8);
-      oscillator2.stop(now + 0.8);
-    } catch (error) {
-      console.error("Erro ao tocar som de unlock:", error);
-    }
   };
 
   // Configuração de milestones para feedback visual - expandido com muito mais detalhes
@@ -305,23 +185,10 @@ const CreatingPlan: React.FC = () => {
     }
   ];
   
-  // Animação de partículas para celebração
-  const triggerConfetti = () => {
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6, x: 0.5 },
-      colors: ['#7432B4', '#9747FF', '#FFD700']
-    });
-    
-    // Toca o som de sucesso quando o confetti aparecer
-    playSuccessSound();
-  };
-  
-  // Animação de progresso e redirecionamento sincronizado
+  // Animação de progresso e redirecionamento sincronizado - VERSÃO SIMPLIFICADA
   useEffect(() => {
     // Determinar o tempo total baseado na velocidade escolhida
-    const totalTime = fastForward ? 2500 : 6000;
+    const totalTime = fastForward ? 3000 : 7000;
     const interval = 50; // Atualiza a cada 50ms para animação mais suave
     const steps = totalTime / interval;
     const increment = 100 / steps;
@@ -343,9 +210,6 @@ const CreatingPlan: React.FC = () => {
             setGeneratingSpecial(element.label);
             setTimeout(() => setGeneratingSpecial(null), 2000);
           }
-          
-          // Som de desbloqueio
-          playUnlockSound();
         }
       });
       
@@ -354,17 +218,18 @@ const CreatingPlan: React.FC = () => {
         if (newValue >= milestones[i].threshold && currentMilestone < i) {
           setCurrentMilestone(i);
           
-          // Toca som quando atingir um novo milestone
-          playMilestoneSound(i);
-          
-          // Pequeno confetti ao atingir cada milestone exceto o final
-          if (i < milestones.length - 1) {
-            confetti({
-              particleCount: 30,
-              spread: 50,
-              origin: { y: 0.6 },
-              colors: ['#7432B4']
-            });
+          // Pequeno confetti ao atingir o milestone final
+          if (i === milestones.length - 1) {
+            try {
+              confetti({
+                particleCount: 100,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#7432B4', '#9747FF', '#FFD700']
+              });
+            } catch (error) {
+              console.error("Confetti error", error);
+            }
           }
           break;
         }
@@ -373,7 +238,6 @@ const CreatingPlan: React.FC = () => {
       // Quando chegar a 100%, mostra achievement e redireciona depois
       if (newValue >= 100) {
         clearInterval(animationInterval);
-        triggerConfetti();
         setShowAchievement(true);
         
         setTimeout(() => {
@@ -495,7 +359,7 @@ const CreatingPlan: React.FC = () => {
             </motion.div>
 
             {/* Notificação de risco para IMC alto - Aumente a urgência */}
-            {bodyMassIndex > 25 && progressPercentage > 15 && progressPercentage < 75 && (
+            {bodyMassIndex && bodyMassIndex > 25 && progressPercentage > 15 && progressPercentage < 75 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -571,12 +435,7 @@ const CreatingPlan: React.FC = () => {
                         'bg-gray-50 border border-gray-200'
                       }`}
                       animate={isPulsing ? { 
-                        scale: [1, 1.05, 1],
-                        boxShadow: [
-                          '0 0 0 rgba(116, 50, 180, 0)', 
-                          '0 0 15px rgba(116, 50, 180, 0.3)', 
-                          '0 0 0 rgba(116, 50, 180, 0)'
-                        ]
+                        scale: [1, 1.05, 1]
                       } : {}}
                       transition={{ duration: 0.8 }}
                     >
@@ -628,30 +487,6 @@ const CreatingPlan: React.FC = () => {
                   transition={{ type: "spring", stiffness: 300, damping: 15 }}
                   className="mb-5 bg-gradient-to-r from-purple-600 to-purple-800 rounded-xl p-5 text-white shadow-lg overflow-hidden relative"
                 >
-                  {/* Overlay de partículas */}
-                  {Array.from({ length: 20 }).map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute w-1.5 h-1.5 rounded-full bg-yellow-300 opacity-60"
-                      style={{ 
-                        left: `${Math.random() * 100}%`, 
-                        top: `${Math.random() * 100}%` 
-                      }}
-                      initial={{ opacity: 0 }}
-                      animate={{ 
-                        opacity: [0, 1, 0],
-                        y: [0, Math.random() * -30],
-                        x: [0, (Math.random() - 0.5) * 40]
-                      }}
-                      transition={{ 
-                        duration: 2,
-                        delay: Math.random() * 0.5,
-                        repeat: Infinity,
-                        repeatDelay: Math.random() * 2
-                      }}
-                    />
-                  ))}
-                  
                   <div className="flex flex-col sm:flex-row items-center gap-4">
                     <div className="relative">
                       <motion.div 
